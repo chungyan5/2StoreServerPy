@@ -1,0 +1,26 @@
+[loggers]
+keys=root,ServerMon
+
+[logger_root]
+level=NOTSET
+handlers=
+
+[logger_ServerMon]
+handlers=file
+qualname=ServerMon
+
+[formatters]
+keys=complex
+
+[formatter_complex]
+format=%(asctime)s - %(name)s - %(levelname)s - %(module)s : %(lineno)d - %(message)s
+
+[handlers]
+keys=file
+
+[handler_file]
+class=handlers.TimedRotatingFileHandler
+backupCount=5
+formatter=complex
+level=DEBUG
+args=('ServerMon.log',)
