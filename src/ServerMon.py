@@ -7,46 +7,22 @@
 ##################################################
 
 ## import other libraries
-import argparse  
-import ConfigParser
-import logging.config
-from AutoOff2Online import AutoOff2Online
+### daemon time 
+import time
+### daemon library 
+import daemon
 
-## get optional arguments   
-#################################
-parser = argparse.ArgumentParser(description='2store Server Monitoring')
-parser.add_argument('-p', type=str, 
-                   help='the config files path (.para and .logging)')
-args = parser.parse_args()
-if args.p == None:
-    paraFile = ".para"                  # at current folder
-    logFile = ".logging"
-else:
-    paraFile = args.p + ".para"
-    logFile = args.p + ".logging"
-
-## setup Configuration file for different parameters  
-#################################
-
-## prepare Configuration file
-config = ConfigParser.ConfigParser() 
-config.read(paraFile) 
-basePath = config.get("default", "BASE_PATH")
- 
-## all Parameters for this module 
+## This Class Server Monitor Deamon   
 ##################################################
-syncPath = "/files/Sync_Devices/"
+def do_main_program():
+    cnt = 0 
+    while True: 
+        with open("/tmp/test1.txt", "a") as text1_file:
+            text1_file.write("Cnt: {}\n".format(cnt))
+            cnt = cnt +1
+        time.sleep(5)
 
-## logging setting 
+## call daemon library
 ##################################################
-logging.config.fileConfig(logFile)
-serverModLogger = logging.getLogger('ServerMon')
-serverModLogger.info('===========================================')
-serverModLogger.info('Start info message from Main Server Monitor')
-
-## auto. Change from offline to online mode after meet a 90% full 
-##################################################
-autoOff2Online = AutoOff2Online(basePath, syncPath, serverModLogger)
-autoOff2Online.off2Online()
-# os.system("/bin/date >> /tmp/2.txt")
-
+with daemon.DaemonContext():
+    do_main_program()
