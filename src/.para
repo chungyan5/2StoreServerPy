@@ -2,9 +2,9 @@
 ## Regular Period Process  
 REG_PROCESS=/usr/bin/python /home/yan/owncloud_Asus/ServicesAgent/Projects/2Store/Technical/Online_Offline_Selection/Ws/ServerPy/src/ServerMon.py -p /home/yan/owncloud_Asus/ServicesAgent/Projects/2Store/Technical/Online_Offline_Selection/Ws/ServerPy/src/ 
 
-## The Freq. of Regular Server Monitoring (in Min. unit)
-##      cannot 1 min, do not know why
-REG_PERIOD=2
+## The Freq. of Regular Server Monitoring (in Second unit)
+##      cannot be 1, do not know why
+REG_PERIOD=10
 
 ## Base Path for the owncloud folder 
-BASE_PATH=/home/yan/owncloud_Asus/YungYan/Resources/Data/tmp/Asus_Tmp/g/
+BASE_PATH=/home/yan/2Store_Asus/YungYan/Resources/Data/tmp/Asus_Tmp/g/
