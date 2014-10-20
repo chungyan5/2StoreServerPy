@@ -1,28 +1,32 @@
 '''
 Created on Sep 12, 2014
-Filename: AutoOff2Online.py
-Description: auto. Change from offline to online mode after meet a 90% full
+Filename: OffOnlineMode.py
+Description: offline and online mode 
 @author: yan, chungyan5@gmail.com, 2Store
 '''
 
 ## import other libraries
 ##################################################
+
+### logging library 
+import logging
+
+### file names matching library and file system searching 
+import fnmatch
+import os
 import scandir             # using scandir lib. instead of standard os due to more faster speed 
 
-## config. this module as utf-8 encoding
+## create logging
 ##################################################
-#import sys
-#reload(sys)
-#sys.setdefaultencoding("utf-8")
+serverModLogger = logging.getLogger('ServerMon.OffOnlineMode')
 
 ## this module class
 ##################################################
-class AutoOff2Online():
+class OffOnlineMode():
 
-    def __init__(self, user_base_path, syncPath, logger):
+    def __init__(self, user_base_path, syncPath):
         self.user_base_path = user_base_path
         self.syncPath = syncPath
-        self.logger = logger
         
 ## list all users one by one starting from .../owncloud/data/user.../ folder
 ##################################################
@@ -44,28 +48,46 @@ class AutoOff2Online():
         rootLoopingPath = thisUserDevicePath
         j = 5
         for curDir, subdirList, fileList in scandir.walk(rootLoopingPath):
-            self.logger.debug('dirName: %s', curDir)
+            #self.logger.debug('dirName: %s', curDir)
             j = j-1
             if j==0:
                 break
             for fileName in fileList:
-                self.logger.debug('fileName: %s ', fileName)
+                #self.logger.debug('fileName: %s ', fileName)
                 if fileName == ".meta":
-                    self.logger.debug('find out the %s at %s', fileName, curDir)
+                    #self.logger.debug('find out the %s at %s', fileName, curDir)
                     break
             for subDirName in subdirList:
-                self.logger.debug('subDirName: %s ', subDirName)
+                serverModLogger.debug('subDirName: %s ', subDirName)
 
 ## Auto. Offline to Online operation 
 ##################################################
     def off2Online(self):
         users = self.getAllUsersOneByOne()
         for user in users:
-            self.logger.info('handling User: %s', user)
+            #self.logger.info('handling User: %s', user)
             thisUserPath = self.user_base_path + user + self.syncPath
             devices = self.getAllDevicesOneByOne(thisUserPath)
             for device in devices:
-                self.logger.info('handling Device: %s', device)
+                #self.logger.info('handling Device: %s', device)
                 thisUserDevicePath = thisUserPath + device 
-                self.seekMeta(thisUserDevicePath)
+                #self.seekMeta(thisUserDevicePath)
                 
+## Main Execution 
+##################################################
+    def execution(self):
+
+### monitoring the .meta
+##################################################
+        
+####    scan each folders and files for .meta file at 
+####        each location from .../owncloud/data/"user".../files/... folders AND
+####        .../owncloud/data/"user".../files/Sync_Devices/... folders 
+        for root, dirs, files in os.walk(self.user_base_path):
+            #serverModLogger.debug('root %s', root)
+            #for dir in dirs:
+            #    serverModLogger.debug('dirs %s', dir)
+            #for file in files:
+            #    serverModLogger.debug('files %s', file)
+            for filename in fnmatch.filter(files, ".meta"):
+                serverModLogger.debug( os.path.join(root, filename))
