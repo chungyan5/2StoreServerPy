@@ -47,7 +47,7 @@ class DaemonApp():
 
 ### clear end time, start time 
         startTime = datetime.datetime.now()
-        endTime = datetime.datetime.now()
+        endTime = datetime.datetime.now() + datetime.timedelta(seconds=self.reg_period+1)  # let it to be > reg_period, so start to operate immediately  
     
 ### read in parameter of between jobs interval time (in second unit)
          
@@ -72,7 +72,7 @@ class DaemonApp():
                 #waitTime = self.reg_period
                 serverModLogger.debug('wait time (in Second) %s', waitTime)
                 time.sleep(float(waitTime))
-
+                
 ### keep the start time     
 ##################################################
             startTime = datetime.datetime.now()
