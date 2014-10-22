@@ -21,8 +21,10 @@ import ConfigParser
 ### global variables
 import globalMod
 
-### input this application global variable 
-#from ServerMon import syncPath
+### execute linux command 
+import subprocess
+
+import sys
 
 ## create logging
 ##################################################
@@ -35,11 +37,10 @@ class OffOnlineMode(object):
     classdocs
     '''
 
-    def __init__(self, user_base_path):
+    def __init__(self):
         '''
         Constructor
         '''
-        self.user_base_path = user_base_path
         
 ## Main Execution 
 ##################################################
@@ -55,7 +56,8 @@ class OffOnlineMode(object):
         #    os.walk() -- no error in encoding, but slower
         #    scandir.walk() -- has error in encoding, but faster 
         #    may add a exception handling to skip this err. due to not my matching in .meta
-        for root, dirs, files in os.walk(self.user_base_path):
+        #    TODO: remove the following warning
+        for root, dirs, files in os.walk(globalMod.getBasePath()):
             #serverModLogger.debug('root %s', root)
             #for dir in dirs:
             #    serverModLogger.debug('dirs %s', dir)
@@ -76,6 +78,25 @@ class OffOnlineMode(object):
 ######              if at Sync_devices folder 
                     if globalMod.SYNC_PATH in root:
                         serverModLogger.debug( os.path.join(root, filename) + " default offline at Sync_devices")
+#######                 get a meta -> max. folder size
+                        try: 
+                            maxFolderSize = int(meta.get("default", "MAX_FOLDER_SIZE"))
+                            serverModLogger.debug( " maxFolderSize = %d", maxFolderSize)
+
+#######                 read the existing folder file size 
+#######                     reference from http://stackoverflow.com/questions/1392413/calculating-a-directory-size-using-python
+                            retStr = subprocess.check_output(["du", "-sh", "-BG", root]).split()[0]
+                            existingFolderSize = int(retStr[:-1])
+                            serverModLogger.debug( "1 after du = %d", existingFolderSize)
+                            
+                            if existingFolderSize > maxFolderSize: 
+                                serverModLogger.debug( "existingFolderSize larger")
+                            else:
+                                serverModLogger.debug( "maxFolderSize larger")
+                        
+#######                 it is not a folder, so skip 
+                        except ConfigParser.NoOptionError:
+                            pass
                         
 ######              if at pool folder 
                     else:

@@ -37,7 +37,7 @@ class DaemonApp():
         self.pidfile_path =  '/tmp/serverMod.pid'
         self.pidfile_timeout = 5
         
-        self.offOnlineMode = OffOnlineMode(globalMod.getBasePath())
+        self.offOnlineMode = OffOnlineMode()
         
     def run(self):
         
