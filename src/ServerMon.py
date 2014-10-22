@@ -1,10 +1,10 @@
-#!/usr/bin/python
-# Filename: ServerMon.py
-# Description: Server Monitoring tasks
-#                1) auto. Change from offline to online mode after meet a 90% full 
-# Attention for running this script: must be run in superuser or www-data user daemon 
-# Author: yan, chungyan5@gmail.com, 2Store   
-##################################################
+'''
+Filename: ServerMon.py
+Description: Server Monitoring tasks
+                1) auto. Change from offline to online mode after meet a 90% full
+             Attention for running this script: must be run in superuser or www-data user daemon
+@author: yan, chungyan5@gmail.com, 2Store
+'''
 
 ## import other libraries
 ##################################################
@@ -12,11 +12,11 @@
 ### daemon library 
 from daemon import runner
 
-### configuration file parser library 
-import ConfigParser
-
 ### logging library 
 import logging.config
+
+### global variables
+import globalMod
 
 ### daemon time and datetime 
 import time
@@ -30,15 +30,14 @@ from OffOnlineMode import OffOnlineMode
 
 class DaemonApp():
     
-    def __init__(self, reg_period):
+    def __init__(self):
         self.stdin_path = '/dev/null'
         self.stdout_path = '/dev/null'
         self.stderr_path = '/dev/null'
         self.pidfile_path =  '/tmp/serverMod.pid'
         self.pidfile_timeout = 5
         
-        self.reg_period = reg_period        # fixed regular interval to operation, in second unit
-        self.offOnlineMode = OffOnlineMode(basePath, syncPath)
+        self.offOnlineMode = OffOnlineMode(globalMod.getBasePath())
         
     def run(self):
         
@@ -47,10 +46,10 @@ class DaemonApp():
 
 ### clear end time, start time 
         startTime = datetime.datetime.now()
-        endTime = datetime.datetime.now() + datetime.timedelta(seconds=self.reg_period+1)  # let it to be > reg_period, so start to operate immediately  
+        endTime = datetime.datetime.now() + datetime.timedelta(seconds=globalMod.getRegPeriod()+1)  # let it to be > regular period, so start to operate immediately  
     
 ### read in parameter of between jobs interval time (in second unit)
-         
+
 ## looping     
 ##################################################
         while True: 
@@ -66,16 +65,16 @@ class DaemonApp():
 ####     if NOT operation time > between jobs interval time
 ####        waiting time = between jobs interval time - operation time 
 ####        sleeping for waiting time period
-            if operationTimeSec < self.reg_period:
+            if operationTimeSec < globalMod.getRegPeriod():
                 # waiting time in second unit 
-                waitTime = self.reg_period - operationTimeSec
-                #waitTime = self.reg_period
+                waitTime = globalMod.getRegPeriod() - operationTimeSec
                 serverModLogger.debug('wait time (in Second) %s', waitTime)
                 time.sleep(float(waitTime))
                 
 ### keep the start time     
 ##################################################
             startTime = datetime.datetime.now()
+            serverModLogger.debug('starting Time %s', startTime)
 
 ### Offline and Online Mode 
 ##################################################
@@ -84,37 +83,30 @@ class DaemonApp():
 ### keep the end time and loop back
 ##################################################
             endTime = datetime.datetime.now()
+            serverModLogger.debug('end Time %s', endTime)
 
-## get optional arguments   
+## start the Main Application    
 #################################
-paraFile = ".para"                  # fixed at current folder
-logFile = ".logging"
+if __name__ == '__main__':
 
-## setup Configuration file for different parameters  
-#################################
-
-## prepare Configuration file
-config = ConfigParser.ConfigParser() 
-config.read(paraFile) 
-basePath = config.get("default", "BASE_PATH")
+## setup the global variables 
+##################################################
+    globalMod.init()
 
 ## logging setting 
 ##################################################
-logging.config.fileConfig(logFile)
-serverModLogger = logging.getLogger('ServerMon')
-serverModLogger.info('===========================================')
-serverModLogger.info('Start info message from Main Server Monitor')
-
-## all Parameters listed here for this module 
-##################################################
-syncPath = "/files/Sync_Devices/"
+    logging.config.fileConfig(globalMod.logFile)
+    serverModLogger = logging.getLogger('ServerMon')
+    serverModLogger.info('===========================================')
+    # TODO: display corresponding "start or stop" msg
+    serverModLogger.info('Start info message from Main Server Monitor')
 
 ## call daemon library
 ##################################################
 ## This Class Server Monitor Daemon Content    
 ##################################################
-app = DaemonApp(float(config.get("default", "REG_PERIOD")))
-daemon_runner = runner.DaemonRunner(app)
-daemon_runner.daemon_context.files_preserve=[serverModLogger.handlers[0].stream]    # This ensures that the logger file handle does not get closed during daemonization
-                                                                                    #    reference: http://stackoverflow.com/questions/4375669/logging-in-python-with-config-file-using-handlers-defined-in-file-through-code
-daemon_runner.do_action()
+    app = DaemonApp()
+    daemon_runner = runner.DaemonRunner(app)
+    daemon_runner.daemon_context.files_preserve=[serverModLogger.handlers[0].stream]    # This ensures that the logger file handle does not get closed during daemonization
+                                                                                        #    reference: http://stackoverflow.com/questions/4375669/logging-in-python-with-config-file-using-handlers-defined-in-file-through-code
+    daemon_runner.do_action()

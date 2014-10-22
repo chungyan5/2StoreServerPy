@@ -1,5 +1,4 @@
 '''
-Created on Sep 12, 2014
 Filename: OffOnlineMode.py
 Description: offline and online mode 
 @author: yan, chungyan5@gmail.com, 2Store
@@ -14,7 +13,16 @@ import logging
 ### file names matching library and file system searching 
 import fnmatch
 import os
-import scandir             # using scandir lib. instead of standard os due to more faster speed 
+#import scandir             # using scandir lib. instead of standard os due to more faster speed 
+
+### configuration file parser library 
+import ConfigParser
+
+### global variables
+import globalMod
+
+### input this application global variable 
+#from ServerMon import syncPath
 
 ## create logging
 ##################################################
@@ -22,57 +30,17 @@ serverModLogger = logging.getLogger('ServerMon.OffOnlineMode')
 
 ## this module class
 ##################################################
-class OffOnlineMode():
+class OffOnlineMode(object):
+    '''
+    classdocs
+    '''
 
-    def __init__(self, user_base_path, syncPath):
+    def __init__(self, user_base_path):
+        '''
+        Constructor
+        '''
         self.user_base_path = user_base_path
-        self.syncPath = syncPath
         
-## list all users one by one starting from .../owncloud/data/user.../ folder
-##################################################
-    def getAllUsersOneByOne(self):
-        dirs = scandir.walk(self.user_base_path).next()[1]       # call 1st next(), i.e. the top folder; [1] as listing folder name only
-        for eachDirName in dirs:     
-            yield eachDirName
-
-## list all devices starting from .../owncloud/data/user.../files/Sync_Devices/ folder
-##################################################
-    def getAllDevicesOneByOne(self, thisUserPath): 
-        dirs = scandir.walk(thisUserPath).next()[1]
-        for eachDirName in dirs:
-            yield eachDirName
-
-## looping to read each meta file for all devices
-##################################################
-    def seekMeta(self, thisUserDevicePath): 
-        rootLoopingPath = thisUserDevicePath
-        j = 5
-        for curDir, subdirList, fileList in scandir.walk(rootLoopingPath):
-            #self.logger.debug('dirName: %s', curDir)
-            j = j-1
-            if j==0:
-                break
-            for fileName in fileList:
-                #self.logger.debug('fileName: %s ', fileName)
-                if fileName == ".meta":
-                    #self.logger.debug('find out the %s at %s', fileName, curDir)
-                    break
-            for subDirName in subdirList:
-                serverModLogger.debug('subDirName: %s ', subDirName)
-
-## Auto. Offline to Online operation 
-##################################################
-    def off2Online(self):
-        users = self.getAllUsersOneByOne()
-        for user in users:
-            #self.logger.info('handling User: %s', user)
-            thisUserPath = self.user_base_path + user + self.syncPath
-            devices = self.getAllDevicesOneByOne(thisUserPath)
-            for device in devices:
-                #self.logger.info('handling Device: %s', device)
-                thisUserDevicePath = thisUserPath + device 
-                #self.seekMeta(thisUserDevicePath)
-                
 ## Main Execution 
 ##################################################
     def execution(self):
@@ -82,12 +50,56 @@ class OffOnlineMode():
         
 ####    scan each folders and files for .meta file at 
 ####        each location from .../owncloud/data/"user".../files/... folders AND
-####        .../owncloud/data/"user".../files/Sync_Devices/... folders 
+####        .../owncloud/data/"user".../files/Sync_Devices/... folders
+        # TODO: may be a faster solution than os.walk()
+        #    os.walk() -- no error in encoding, but slower
+        #    scandir.walk() -- has error in encoding, but faster 
+        #    may add a exception handling to skip this err. due to not my matching in .meta
         for root, dirs, files in os.walk(self.user_base_path):
             #serverModLogger.debug('root %s', root)
             #for dir in dirs:
             #    serverModLogger.debug('dirs %s', dir)
             #for file in files:
             #    serverModLogger.debug('files %s', file)
-            for filename in fnmatch.filter(files, ".meta"):
-                serverModLogger.debug( os.path.join(root, filename))
+            for filename in fnmatch.filter(files, "*.2storeMeta"):
+                
+####    read each meta file (detect the 1st meta file only, then ignore all sub-folders meta file)
+                # TODO: no verify the right format of "*.2storeMeta" file. if wrong format, just exception quit and broken this daemon 
+                meta = ConfigParser.ConfigParser() 
+                meta.read(os.path.join(root, filename))
+
+#####        get meta -> ON_OFF_STATUS
+                onOffStatus = meta.get("default", "ON_OFF_STATUS")
+                
+#####           if default offline
+                if onOffStatus == "0":
+######              if at Sync_devices folder 
+                    if globalMod.SYNC_PATH in root:
+                        serverModLogger.debug( os.path.join(root, filename) + " default offline at Sync_devices")
+                        
+######              if at pool folder 
+                    else:
+                        serverModLogger.debug( os.path.join(root, filename) + " default offline at pool")
+
+#####           if offline
+                elif onOffStatus == "1":
+######              if at Sync_devices folder 
+                    if globalMod.SYNC_PATH in root:
+                        serverModLogger.debug( os.path.join(root, filename) + " offline at Sync_devices")
+                        
+######              if at pool folder 
+                    else:
+                        serverModLogger.debug( os.path.join(root, filename) + " offline at pool")
+                    
+#####           if online
+                elif onOffStatus == "2":
+######              if at Sync_devices folder 
+                    if globalMod.SYNC_PATH in root:
+                        serverModLogger.debug( os.path.join(root, filename) + " online at Sync_devices")
+                        
+######              if at pool folder 
+                    else:
+                        serverModLogger.debug( os.path.join(root, filename) + " online at pool")
+                #else: TODO: adding err. handling in future   
+                
+                
