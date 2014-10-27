@@ -41,7 +41,11 @@ class DaemonApp():
         
     def run(self):
         
-## init. Before looping    
+## init. Before looping
+##    TODO: a monitoring algorithm instead of polling
+##        - detect which files are updated
+##        - is it .2storeMeta
+##        -    Yes, do something
 ##################################################
 
 ### clear end time, start time 

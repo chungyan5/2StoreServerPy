@@ -13,8 +13,9 @@ import ConfigParser
 ## list the global variables, all Parameters listed here for this application      
 ##################################################
 
-### path sync devices under owncloud user folder 
-SYNC_PATH = "/files/Sync_Devices/"
+### path sync devices under owncloud user folder
+SYNC_DEVICES = "Sync_Devices"
+SYNC_PATH = "/files/" + SYNC_DEVICES + "/"
 
 ### .para location    
 paraFile = ".para"                  # fixed at current folder
