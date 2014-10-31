@@ -1,9 +1,12 @@
 '''
 Filename: ServerMon.py
 Description: Server Monitoring tasks
-                1) auto. Change from offline to online mode after meet a 90% full
+                1) starting the online and offline mode 
              Attention for running this script: must be run in superuser or www-data user daemon
 @author: yan, chungyan5@gmail.com, 2Store
+Technical: Main() --(call to)-> 
+                Daemon App Class --(call to)-> 
+                    Daemon_App_Class.pyinotify_with_Event_Class 
 '''
 
 ## import other libraries
@@ -18,22 +21,69 @@ import logging.config
 ### global variables
 import globalMod
 
-### daemon time and datetime 
-import time
-import datetime
+### inotify module 
+import pyinotify
+
+### file names matching library and file system searching 
+import os
 
 ### Offline and Online Mode 
 from OffOnlineMode import OffOnlineMode
 
-## This Application Class     
-##################################################
-
 class DaemonApp():
     
+## inotify Events handling      
+##################################################
+
+    class EventHandler(pyinotify.ProcessEvent):
+        
+        def __init__(self, outer):
+            self.outer = outer
+            
+## handling Events Common function       
+##################################################
+        def whenEventsOccur(self, event):
+            
+            path, filename = os.path.split(event.pathname)
+            
+        ### is it .2storeMeta, Yes,
+            if filename == globalMod.META_FILE_NAME:
+                
+                ### call handling manipulate .2storeMeta file function
+                self.outer.offOnlineMode.handleMetaFile(path, filename)
+        
+        ### Not .2storeMeta, it should be any Folder(s)/File(s)
+            elif globalMod.ignoreFileListMatch(filename):
+                pass        # do nothing when match this ignore list
+            else:
+                self.outer.offOnlineMode.scanMetaFolderBottomUp(path)
+                pass
+        
+        def process_IN_CLOSE_WRITE(self, event):
+            
+            serverModLogger.debug('IN_CLOSE_WRITE')
+            
+            self.whenEventsOccur(event)
+            
+        def process_IN_CREATE(self, event):
+            
+            serverModLogger.debug('IN_CREATE')
+                
+            self.whenEventsOccur(event)
+        
+        def process_IN_DELETE_SELF(self, event):
+            
+            serverModLogger.debug('IN_DELETE_SELF')
+                
+            self.whenEventsOccur(event)
+        
+## This Daemon Application      
+##################################################
+
     def __init__(self):
         self.stdin_path = '/dev/null'
         self.stdout_path = '/dev/null'
-        self.stderr_path = '/dev/null'
+        self.stderr_path = '/dev/null'              # most of pyinotify err. msg can be changed to exception
         self.pidfile_path =  '/tmp/serverMod.pid'
         self.pidfile_timeout = 5
         
@@ -41,55 +91,30 @@ class DaemonApp():
         
     def run(self):
         
-## init. Before looping
-##    TODO: a monitoring algorithm instead of polling
-##        - detect which files are updated
-##        - is it .2storeMeta
-##        -    Yes, do something
+        serverModLogger.info('Start daemon running')
+        
+## inotify algorithm       
 ##################################################
 
-### clear end time, start time 
-        startTime = datetime.datetime.now()
-        endTime = datetime.datetime.now() + datetime.timedelta(seconds=globalMod.getRegPeriod()+1)  # let it to be > regular period, so start to operate immediately  
-    
-### read in parameter of between jobs interval time (in second unit)
-
-## looping     
-##################################################
-        while True: 
-
-### verify the interval time     
-##################################################
-
-####     operation time = end time - start time, in second unit  
-            #operationTime = endTime - startTime
-            #operationTimeSec = operationTime.total_seconds()
-            operationTimeSec = (endTime - startTime).total_seconds()
-
-####     if NOT operation time > between jobs interval time
-####        waiting time = between jobs interval time - operation time 
-####        sleeping for waiting time period
-            if operationTimeSec < globalMod.getRegPeriod():
-                # waiting time in second unit 
-                waitTime = globalMod.getRegPeriod() - operationTimeSec
-                serverModLogger.debug('wait time (in Second) %s', waitTime)
-                time.sleep(float(waitTime))
-                
-### keep the start time     
-##################################################
-            startTime = datetime.datetime.now()
-            serverModLogger.debug('starting Time %s', startTime)
-
-### Offline and Online Mode 
-##################################################
-            self.offOnlineMode.execution()
-
-### keep the end time and loop back
-##################################################
-            endTime = datetime.datetime.now()
-            serverModLogger.debug('end Time %s', endTime)
-
-## start the Main Application    
+### start pyinotify
+        
+        # Instanciate a new WatchManager (will be used to store watches).
+        wm = pyinotify.WatchManager()               
+        # watched events
+        mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_DELETE_SELF | pyinotify.IN_CREATE
+        # Associate this WatchManager with a Notifier (will be used to report and process events).
+        handler = DaemonApp.EventHandler(self)
+        notifier = pyinotify.Notifier(wm, handler)
+        
+        try:
+            wm.add_watch(globalMod.getBasePath(), mask, quiet=False, rec=True)
+        except pyinotify.WatchManagerError, err:
+            serverModLogger.error('Init. pyinotify Err. %s', err)
+            
+        # Loop forever and handle events.
+        notifier.loop()
+             
+## start the Main Core Application    
 #################################
 if __name__ == '__main__':
 

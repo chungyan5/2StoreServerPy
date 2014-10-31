@@ -23,4 +23,4 @@ class=handlers.TimedRotatingFileHandler
 backupCount=5
 formatter=complex
 level=DEBUG
-args=('ServerMon.log',)
+args=('/tmp/ServerMon.log',)
