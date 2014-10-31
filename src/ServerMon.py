@@ -61,19 +61,19 @@ class DaemonApp():
         
         def process_IN_CLOSE_WRITE(self, event):
             
-            serverModLogger.debug('IN_CLOSE_WRITE')
+            #serverModLogger.debug('IN_CLOSE_WRITE')
             
             self.whenEventsOccur(event)
             
         def process_IN_CREATE(self, event):
             
-            serverModLogger.debug('IN_CREATE')
+            serverModLogger.debug('IN_CREATE %s', event.pathname)
                 
             self.whenEventsOccur(event)
         
         def process_IN_DELETE_SELF(self, event):
             
-            serverModLogger.debug('IN_DELETE_SELF')
+            serverModLogger.debug('IN_DELETE_SELF %s', event.pathname)
                 
             self.whenEventsOccur(event)
         
@@ -107,7 +107,7 @@ class DaemonApp():
         notifier = pyinotify.Notifier(wm, handler)
         
         try:
-            wm.add_watch(globalMod.getBasePath(), mask, quiet=False, rec=True)
+            wm.add_watch(globalMod.getBasePath(), mask, quiet=False, rec=True, auto_add=True)
         except pyinotify.WatchManagerError, err:
             serverModLogger.error('Init. pyinotify Err. %s', err)
             

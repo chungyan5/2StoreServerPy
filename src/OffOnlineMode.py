@@ -44,7 +44,18 @@ class OffOnlineMode(object):
         '''
         Constructor
         '''
-        
+
+## find the corresponding Pool folder (.../user/files/...) from Sync device folder
+## syncDeviceFolder -- sync device folder path
+## return the path at pool
+##################################################
+    def findCorrPoolFolder(self, syncDeviceFolder):
+        path_list = syncDeviceFolder.split(os.sep)
+        i = path_list.index(globalMod.SYNC_DEVICES)
+        path_list.pop(i+1)
+        path_list.remove(globalMod.SYNC_DEVICES)
+        return os.sep.join(path_list)
+    
 ## Handle meta file  
 ##################################################
     def handleMetaFile(self, thisFolder, thisMetaFileName):
@@ -77,11 +88,9 @@ class OffOnlineMode(object):
                         
         #######                    locate the corresponding folder at pool (.../user/files/...) or create a new one  
                         serverModLogger.debug( "existingFolderSize larger %s", thisFolder)
-                        path_list = thisFolder.split(os.sep)
-                        i = path_list.index(globalMod.SYNC_DEVICES)
-                        path_list.pop(i+1)
-                        path_list.remove(globalMod.SYNC_DEVICES)
-                        update_path = os.sep.join(path_list)
+                        
+                        update_path = self.findCorrPoolFolder(thisFolder)
+                        
                         serverModLogger.debug( "update_path %s", update_path)
 
         ########                       create this folder if not existing .../user/files/device.../...
@@ -162,6 +171,18 @@ class OffOnlineMode(object):
         #####              if at Sync_devices folder 
             if globalMod.SYNC_PATH in thisFolder:
                 serverModLogger.debug( os.path.join(thisFolder, thisMetaFileName) + " online at Sync_devices")
+                
+                # locate the corresponding folder at pool (.../user/files/...) XXXor create a new oneXXX
+                update_path = self.findCorrPoolFolder(thisFolder)
+                
+                # move files to this new pool folder
+                serverModLogger.debug( "thisFolder %s", thisFolder)
+                serverModLogger.debug( "update_path %s", update_path)
+                shutil.move(thisFolder, update_path)          # this function will mv file, soft-link and folder
+                
+                #    XXXexclusiveXXXX .2storeMeta
+                # XXXcreate a newXXXX .meta file at pool new folder with online mode
+                
                 
         #####              if at pool folder 
             else:
