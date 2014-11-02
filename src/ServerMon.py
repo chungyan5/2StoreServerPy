@@ -2,11 +2,15 @@
 Filename: ServerMon.py
 Description: Server Monitoring tasks
                 1) starting the online and offline mode 
-             Attention for running this script: must be run in superuser or www-data user daemon
+             Attention for running this script: must be run in superuser or www-data user daemon in linux platform only 
 @author: yan, chungyan5@gmail.com, 2Store
 Technical: Main() --(call to)-> 
                 Daemon App Class --(call to)-> 
-                    Daemon_App_Class.pyinotify_with_Event_Class 
+                    Daemon_App_Class.pyinotify_with_Event_Class
+Testing Cases:
+1) on 2014_11_01
+    - create a new meta file
+    - changing of meta file
 '''
 
 ## import other libraries
@@ -21,7 +25,7 @@ import logging.config
 ### global variables
 import globalMod
 
-### inotify module 
+### inotify module in Ver 0.9.2 
 import pyinotify
 
 ### file names matching library and file system searching 
@@ -42,7 +46,9 @@ class DaemonApp():
             
 ## handling Events Common function       
 ##################################################
-        def whenEventsOccur(self, event):
+        def process_default(self, event):
+            
+            serverModLogger.debug('process_default %s %s', event.maskname, event.pathname)
             
             path, filename = os.path.split(event.pathname)
             
@@ -58,24 +64,6 @@ class DaemonApp():
             else:
                 self.outer.offOnlineMode.scanMetaFolderBottomUp(path)
                 pass
-        
-        def process_IN_CLOSE_WRITE(self, event):
-            
-            #serverModLogger.debug('IN_CLOSE_WRITE')
-            
-            self.whenEventsOccur(event)
-            
-        def process_IN_CREATE(self, event):
-            
-            serverModLogger.debug('IN_CREATE %s', event.pathname)
-                
-            self.whenEventsOccur(event)
-        
-        def process_IN_DELETE_SELF(self, event):
-            
-            serverModLogger.debug('IN_DELETE_SELF %s', event.pathname)
-                
-            self.whenEventsOccur(event)
         
 ## This Daemon Application      
 ##################################################
@@ -99,12 +87,26 @@ class DaemonApp():
 ### start pyinotify
         
         # Instanciate a new WatchManager (will be used to store watches).
-        wm = pyinotify.WatchManager()               
-        # watched events
-        mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_DELETE_SELF | pyinotify.IN_CREATE
+        wm = pyinotify.WatchManager()
+                       
+        # watched events which specific tested for btsync
+        #    ignore the events as following 
+        #        IN_OPEN -- open to read by btsync 
+        #        IN_CLOSE_NOWRITE -- after read the content and close without any modification 
+        #        IN_ACCESS -- normal access the file/folder for reading 
+        #        IN_ATTRIB -- changing attrib but we just care content changing 
+        #        IN_MOVED_FROM -- rename from XXX to new one, we just handle IN_MOVED_To after completed the rename  
+        #    should included events 
+        #        IN_MOVED_TO -- from .2storeMeta.!sync to(this a new file name event) .2storeMeta
+        #        IN_CLOSE_WRITE
+        #        IN_DELETE_SELF
+        #        IN_CREATE
+        mask = pyinotify.ALL_EVENTS ^ pyinotify.IN_OPEN ^ pyinotify.IN_CLOSE_NOWRITE ^ \
+                 pyinotify.IN_ACCESS ^ pyinotify.IN_ATTRIB ^ pyinotify.IN_MOVED_FROM
+        #mask = pyinotify.IN_CLOSE_WRITE | pyinotify.IN_DELETE_SELF | pyinotify.IN_CREATE
+        
         # Associate this WatchManager with a Notifier (will be used to report and process events).
-        handler = DaemonApp.EventHandler(self)
-        notifier = pyinotify.Notifier(wm, handler)
+        notifier = pyinotify.Notifier(wm, DaemonApp.EventHandler(self))
         
         try:
             wm.add_watch(globalMod.getBasePath(), mask, quiet=False, rec=True, auto_add=True)

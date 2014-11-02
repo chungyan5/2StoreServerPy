@@ -26,6 +26,9 @@ import globalMod
 ### execute linux command 
 import subprocess
 
+### error handling 
+import errno
+
 ## create logging
 ##################################################
 serverModLogger = logging.getLogger('ServerMon.OffOnlineMode')
@@ -56,6 +59,99 @@ class OffOnlineMode(object):
         path_list.remove(globalMod.SYNC_DEVICES)
         return os.sep.join(path_list)
     
+## Description: move data from src to dest
+##    - avoiding overwrite file, just skip this moving process
+##        eg. mv src/sameFileName dest/sameFileName 
+##                or mv src/fileName dest/anotherFileName 
+##                or mv src/fileName dest/anotherFolder where dest/anotherFolder contains sameFileName (dest/anotherFolder/sameFileName)
+##            i.e. keep all of them in src/sameFileName, dest/sameFileName, dest/anotherFileName and dest/anotherFolder/sameFileName
+##            AVOID: standard posix will overwrite the dest/sameFileName or dest/anotherFileName or dest/anotherFolder/sameFileName by src/fileName
+##    - if same folder name(src/oneFolder and dest/oneFolder), move files inside src folder one by one
+##        eg. mv src/oneFolder dest/oneFolder, 
+##            i.e. mv src/oneFolder/* to dest/oneFolder/*
+##            AVOID: standard posix will mv src/oneFolder to dest/oneFolder/oneFolder
+## Testing Cases:
+##    - move src/fileName and dest/fileName
+##        * move src/sameFileName and dest/sameFileName; skip standard process and do nothing
+##        * move src/fileName and dest/anotherFileName; skip standard process and do nothing
+##    - move src/folderName and dest/fileName; standard process will raise err and do nothing
+##    - move src/fileName and dest/folderName; skip standard process and chk dest/folderName/content  
+##    - move src/folderName and dest/folderName 
+##        * move src/sameFolderName and dest/sameFolderName; skip standard process and merge both Folders content into dest/sameFolderName 
+##        * move src/folderName and dest/anotherFolderName; standard process, rise err and do nothing when dest/folderName/subFolderName same to srcFolderName 
+## pseudo code:
+##    if both are files, do nothing 
+##    else if src is file and dest is folder
+##        list dest content
+##        if have same file name by scanning, do nothing 
+##        if do not have same file name after scanning, do moving
+##    else if both are folders and same name
+##        list src content
+##        one by one of src content to call this function again as file/folder to folder
+##        if src folder is empty, remove it
+##    else standard process
+##        catch the exceptional errors, then skip them
+##################################################
+    def mvData(self, srcPath, destPath):
+    
+        # get full path src file/folder and dest file/folder   
+        sDirFlag = os.path.isdir(srcPath)           # get file or folder attribute 
+        dDirFlag = os.path.isdir(destPath)
+        srcName = os.path.basename(srcPath)         # remove path and get base name only
+        destName = os.path.basename(destPath)   
+        
+        # /srcFileName and /destFileName
+        if (sDirFlag | dDirFlag) == 0:
+            serverModLogger.debug("both as files %s %s", srcPath, destPath)
+            
+            # do nothing
+            pass                  
+        
+        # /srcFileName and /destFolderName
+        elif (sDirFlag==0) & (dDirFlag==1):
+            serverModLogger.debug("/srcFileName and /destFolderName %s %s", srcPath, destPath)
+            
+            # list dest content
+            for destSubFileFolderName in os.listdir(destPath):
+                serverModLogger.debug("%s at list dest dir %s", destSubFileFolderName, destPath)
+                
+            # if have same file name(/srcFileName == /destFolderName/destSubFileOrFolderName), do nothing
+                serverModLogger.debug("destFileFolderName %s and srcName %s", destSubFileFolderName, srcName)
+                if fnmatch.fnmatch(destSubFileFolderName, srcName):
+                    serverModLogger.debug("/srcFileName == /destFolderName/destSubFileOrFolderName, so do nothing")
+                    return
+                
+            # if do not have same file name after scanning, do moving
+            serverModLogger.debug("shutil.move(%s, %s)", srcPath, destPath)
+            shutil.move(srcPath, destPath)              # this function will mv file, soft-link
+
+        # /sameSrcFolderName == /sameDestFolderName
+        elif (sDirFlag & dDirFlag) & (srcName == destName):
+            serverModLogger.debug("/sameSrcFolderName == /sameDestFolderName %s %s", srcPath, destPath)
+             
+            # list src content 
+            for srcSubFileFolderName in os.listdir(srcPath):
+                serverModLogger.debug("%s at list src dir %s %s", srcSubFileFolderName, srcPath, destPath)
+                
+                # one by one of src content to call this function again as file/folder to folder
+                self.mvData(os.path.join(srcPath, srcSubFileFolderName), destPath)
+
+            # all others are using standard process
+            try:
+                os.rmdir(srcPath)
+            except OSError as ose:
+                if ose.errno == errno.ENOTEMPTY:
+                    serverModLogger.debug("cannot remove %s due to directory not empty", srcPath)
+
+        # all others are using standard process
+        else:
+            try:
+                shutil.move(srcPath, destPath)
+            except OSError as ose:
+                serverModLogger.debug("OSError %s", ose)
+            except shutil.Error as shutilErr:
+                serverModLogger.debug("Error in dest/folderName/subFolderName same to srcFolderName: %s", shutilErr)
+
 ## Handle meta file  
 ##################################################
     def handleMetaFile(self, thisFolder, thisMetaFileName):
@@ -128,9 +224,7 @@ class OffOnlineMode(object):
                                 thisFileSize = os.path.getsize(fileName) /1024          # in XXXkbyte
                             total_size += thisFileSize
                             
-                            #sourceFile = os.path.join(thisFolder, fileName)
-                            #shutil.move(sourceFile, update_path)
-                            shutil.move(fileName, update_path)              # this function will mv file, soft-link and folder
+                            self.mvData(fileName, update_path)
                             
                             #serverModLogger.debug( "total_size %d ", total_size)
                             #serverModLogger.debug( "maxFolderSize*0.5 %d ", maxFolderSize*0.5)
@@ -174,15 +268,20 @@ class OffOnlineMode(object):
                 
                 # locate the corresponding folder at pool (.../user/files/...) XXXor create a new oneXXX
                 update_path = self.findCorrPoolFolder(thisFolder)
+                #statinfo = os.stat(thisFolder)
                 
                 # move files to this new pool folder
                 serverModLogger.debug( "thisFolder %s", thisFolder)
                 serverModLogger.debug( "update_path %s", update_path)
-                shutil.move(thisFolder, update_path)          # this function will mv file, soft-link and folder
-                
-                #    XXXexclusiveXXXX .2storeMeta
-                # XXXcreate a newXXXX .meta file at pool new folder with online mode
-                
+
+                # moving files
+                self.mvData(thisFolder, update_path)
+                # TODO: change the new created folder permission  
+                #for root, dirs, files in os.walk(update_path, topdown=False):
+                #    for dir in dirs:
+                #        os.chmod(dir, statinfo[0])
+                #    for file in files:
+                #        os.chmod(file, statinfo[0])                
                 
         #####              if at pool folder 
             else:
