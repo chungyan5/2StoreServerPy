@@ -70,8 +70,8 @@ class DaemonApp():
 
     def __init__(self):
         self.stdin_path = '/dev/null'
-        self.stdout_path = '/dev/null'
-        self.stderr_path = '/dev/null'              # most of pyinotify err. msg can be changed to exception
+        self.stdout_path = '/tmp/ServerMon_stdout.log'
+        self.stderr_path = '/tmp/ServerMon_stderr.log'       # most of pyinotify err. msg can be changed to exception
         self.pidfile_path =  '/tmp/serverMod.pid'
         self.pidfile_timeout = 5
         
