@@ -315,7 +315,7 @@ class OffOnlineMode(object):
             for filename in fnmatch.filter(fileList, '*' + globalMod.META_FILE_NAME):
                 self.handleMetaFile(curWalkingDirName, filename)
 
-## Scan meta file corresponding folder and its recursive sub-folders (top-down) 
+## Scan meta file corresponding folder and its recursive sub-folders (buttom-up) 
 ##################################################
     def scanMetaFolderBottomUp(self, folder):
         
@@ -328,19 +328,29 @@ class OffOnlineMode(object):
             
             serverModLogger.debug("base folder fr. bottom up as %s", curWalkingDirName)
             
-            ### seek the meta file current folder
-            fileList = os.listdir(curWalkingDirName)
+            try:
+                
+            ### open this folder content
+                fileList = os.listdir(curWalkingDirName)
             #### TODO: only one .2storeMeta need to handle, ignore the sub-folder .2storeMeta 
             ####        and XXX_FILE.2storeMeta, so should not use the following for loop 
-            for filename in fnmatch.filter(fileList, '*' + globalMod.META_FILE_NAME):
+            
+            ### No such file or directory
+            except OSError as ose:
+                serverModLogger.debug("scanMetaFolderBottomUp Err as %s", ose)
+            else:
+                    
+                ### seek the meta file current folder
+                for filename in fnmatch.filter(fileList, '*' + globalMod.META_FILE_NAME):
                        
-            ### if find the meta file, do something and break this loop
-                self.handleMetaFile(curWalkingDirName, filename)
-                return 
+                ### if find the meta file, do something and break this loop
+                    self.handleMetaFile(curWalkingDirName, filename)
+                    return 
                  
             ### if already at upper level arrive, exit this loop
-            if curWalkingDirName == globalMod.getBasePath():
-                return
+                if curWalkingDirName == globalMod.getBasePath():
+                    return
             
             ### go to upper folder 
             curWalkingDirName = os.path.abspath(os.path.join(curWalkingDirName, os.pardir))
+            
